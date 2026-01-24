@@ -59,11 +59,11 @@ func GenerateMasterKeys() {
 	pubBytes := ssh.MarshalAuthorizedKey(pub)
 	os.WriteFile("/etc/sentinex/id_rsa.pub", pubBytes, 0644)
 
-	fmt.Println("[+] Master SSH keys generated.")
+	fmt.Println("[+] Master SSH keys generated at /etc/sentinex")
 }
 
 /* =========================
-   SINGLE HOST EXECUTION
+   REMOTE EXECUTION
 ========================= */
 
 func ExecuteRemote(target, command string) {
@@ -116,13 +116,8 @@ func ExecuteRemote(target, command string) {
 	session.Wait()
 }
 
-/* =========================
-   MULTI HOST EXECUTION
-========================= */
-
 func ExecuteRemoteMulti(targets []string, command string) {
 	var wg sync.WaitGroup
-
 	fmt.Printf("[*] Executing on %d host(s)\n\n", len(targets))
 
 	for _, t := range targets {
@@ -130,7 +125,6 @@ func ExecuteRemoteMulti(targets []string, command string) {
 		if target == "" {
 			continue
 		}
-
 		wg.Add(1)
 		go func(host string) {
 			defer wg.Done()
@@ -139,16 +133,14 @@ func ExecuteRemoteMulti(targets []string, command string) {
 			fmt.Println()
 		}(target)
 	}
-
 	wg.Wait()
 	fmt.Println("[+] Execution finished.")
 }
 
 /* =========================
-   CASCADING UPDATE
+   v2 CASCADING UPGRADE
 ========================= */
 
-// UpdateAllChildren pushes the Jumpbox binary to all children without touching config
 func UpdateAllChildren() {
 	inv := loadInventory()
 	if len(inv.Hosts) == 0 {
@@ -171,10 +163,10 @@ func UpdateAllChildren() {
 		go func(host HostEntry) {
 			defer wg.Done()
 
-			// Update command: 
-			// 1. Cat the stream into a new file
-			// 2. Move to bin folder (preserves permissions if possible)
-			// 3. Restart service. /etc/sentinex/ is NEVER touched.
+			// Update sequence:
+			// 1. Stream binary to /tmp
+			// 2. Move to /usr/local/bin (requires sudo)
+			// 3. Restart the systemd daemon to apply v2
 			updateCmd := "cat > /tmp/sentinex.new && sudo mv /tmp/sentinex.new /usr/local/bin/sentinex && sudo chmod +x /usr/local/bin/sentinex && sudo systemctl restart sentinex"
 
 			err := ExecuteRemoteWithInput(host.IP, updateCmd, binaryData)
@@ -190,10 +182,9 @@ func UpdateAllChildren() {
 }
 
 /* =========================
-   HELPERS
+   HELPERS & UTILS
 ========================= */
 
-// ExecuteRemoteWithInput allows sending file data (like a binary) over SSH stdin
 func ExecuteRemoteWithInput(targetIP, command string, input []byte) error {
 	keyBytes, err := os.ReadFile("/etc/sentinex/id_rsa")
 	if err != nil {
@@ -220,7 +211,6 @@ func ExecuteRemoteWithInput(targetIP, command string, input []byte) error {
 	}
 	defer session.Close()
 
-	// Connect stdin pipe to send binary data
 	stdin, err := session.StdinPipe()
 	if err != nil {
 		return err
@@ -231,18 +221,10 @@ func ExecuteRemoteWithInput(targetIP, command string, input []byte) error {
 		return err
 	}
 
-	// Write the binary data and close stdin so the command finishes
 	stdin.Write(input)
 	stdin.Close()
 
 	return session.Wait()
-}
-
-func streamOutput(target string, reader io.Reader) {
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		fmt.Printf("[%s] %s\n", target, scanner.Text())
-	}
 }
 
 func ListHosts() {
@@ -285,6 +267,13 @@ func checkStatus(ip string) string {
 	}
 	conn.Close()
 	return ColorGreen + "● Connected" + ColorReset
+}
+
+func streamOutput(target string, reader io.Reader) {
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		fmt.Printf("[%s] %s\n", target, scanner.Text())
+	}
 }
 
 func resolveTarget(target string) string {
