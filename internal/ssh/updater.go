@@ -6,20 +6,32 @@ import (
 	"sync"
 )
 
-// UpdateAllChildren reads the local updated binary and pushes it to all hosts.
+/* ========================================================================
+   v2 CASCADING UPGRADE ENGINE
+   This file handles the distribution of the Sentinex binary from the 
+   Jumpbox to all managed child nodes defined in hosts.yml.
+   ======================================================================== */
+
+// UpdateAllChildren reads the locally updated binary on the Jumpbox 
+// and pushes it to all hosts in parallel via SSH.
 func UpdateAllChildren() {
+	// 1. Load the current inventory from /etc/sentinex/hosts.yml
 	inv := loadInventory()
 	if len(inv.Hosts) == 0 {
-		fmt.Println("No hosts found in inventory to update.")
+		fmt.Println(ColorYellow + "[!] No hosts found in inventory to update." + ColorReset)
 		return
 	}
 
-	// Read the binary we just updated on the Jumpbox
-	binaryData, err := os.ReadFile("/usr/local/bin/sentinex")
+	// 2. Read the binary that was just upgraded on the Jumpbox.
+	// This binary is the "Source of Truth" for the entire fleet.
+	binaryPath := "/usr/local/bin/sentinex"
+	binaryData, err := os.ReadFile(binaryPath)
 	if err != nil {
-		fmt.Printf("[!] Error reading local binary: %v\n", err)
+		fmt.Printf(ColorRed+"[!] Error reading local binary at %s: %v\n"+ColorReset, binaryPath, err)
 		return
 	}
+
+	fmt.Printf(ColorGreen+"[*] Sentinex v2: Blasting update to %d child nodes...\n"+ColorReset, len(inv.Hosts))
 
 	var wg sync.WaitGroup
 	for _, h := range inv.Hosts {
@@ -27,21 +39,24 @@ func UpdateAllChildren() {
 		go func(host HostEntry) {
 			defer wg.Done()
 			
-			// COMMAND: 
-			// 1. Receive binary via stdin (cat)
-			// 2. Move to proper location
-			// 3. Restart service to apply changes
-			// We do NOT touch /etc/sentinex or keys here.
-			updateCmd := "cat > /tmp/sentinex.new && sudo mv /tmp/sentinex.new /usr/local/bin/sentinex && sudo systemctl restart sentinex"
+			// THE UPGRADE SEQUENCE (Remote Execution):
+			// 1. Receive binary stream and save to /tmp/sentinex.new
+			// 2. Move to /usr/local/bin (Atomic swap using sudo)
+			// 3. Set executable permissions
+			// 4. Restart the systemd service to load the new v2 code
+			updateCmd := "cat > /tmp/sentinex.new && sudo mv /tmp/sentinex.new /usr/local/bin/sentinex && sudo chmod +x /usr/local/bin/sentinex && sudo systemctl restart sentinex"
 			
-			// You'll need an 'ExecuteWithInput' helper (see below)
+			// ExecuteRemoteWithInput (from executor.go) handles the SSH tunnel and stdin stream
 			err := ExecuteRemoteWithInput(host.IP, updateCmd, binaryData)
 			if err != nil {
-				fmt.Printf("[%s] Update failed: %v\n", host.Name, err)
+				fmt.Printf("[%s] %sUpdate Failed%s: %v\n", host.Name, ColorRed, ColorReset, err)
 			} else {
-				fmt.Printf("[+] %s updated and restarted.\n", host.Name)
+				fmt.Printf("[%s] %sSuccessfully Patched & Restarted%s\n", host.Name, ColorGreen, ColorReset)
 			}
 		}(h)
 	}
+
+	// Wait for all concurrent updates to finish
 	wg.Wait()
+	fmt.Println("\n" + ColorGreen + "[+++] Global update complete. All nodes are synchronized." + ColorReset)
 }
