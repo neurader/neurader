@@ -20,8 +20,9 @@ const (
 )
 
 type HostEntry struct {
-	Name string `yaml:"name"`
-	IP   string `yaml:"ip"`
+	Name 	string `yaml:"name"`
+	IP   	string `yaml:"ip"`
+	Synced 	bool   `yaml:"synced"`
 }
 
 type Inventory struct {
