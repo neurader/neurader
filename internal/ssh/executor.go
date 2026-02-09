@@ -41,11 +41,11 @@ type Inventory struct {
 ========================= */
 
 func GenerateMasterKeys() {
-	os.MkdirAll("/etc/sentinex", 0700)
+	os.MkdirAll("/etc/neurader", 0700)
 
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 
-	privFile, _ := os.Create("/etc/sentinex/id_rsa")
+	privFile, _ := os.Create("/etc/neurader/id_rsa")
 	defer privFile.Close()
 
 	privBlock := &pem.Block{
@@ -53,13 +53,13 @@ func GenerateMasterKeys() {
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	}
 	pem.Encode(privFile, privBlock)
-	os.Chmod("/etc/sentinex/id_rsa", 0600)
+	os.Chmod("/etc/neurader/id_rsa", 0600)
 
 	pub, _ := ssh.NewPublicKey(&key.PublicKey)
 	pubBytes := ssh.MarshalAuthorizedKey(pub)
-	os.WriteFile("/etc/sentinex/id_rsa.pub", pubBytes, 0644)
+	os.WriteFile("/etc/neurader/id_rsa.pub", pubBytes, 0644)
 
-	fmt.Println("[+] Master SSH keys generated at /etc/sentinex")
+	fmt.Println("[+] Master SSH keys generated at /etc/neurader")
 }
 
 /* =========================
@@ -69,7 +69,7 @@ func GenerateMasterKeys() {
 func ExecuteRemote(target, command string) {
 	targetIP := resolveTarget(target)
 
-	keyBytes, err := os.ReadFile("/etc/sentinex/id_rsa")
+	keyBytes, err := os.ReadFile("/etc/neurader/id_rsa")
 	if err != nil {
 		fmt.Println("[!] SSH private key not found. Run with sudo.")
 		return
@@ -82,7 +82,7 @@ func ExecuteRemote(target, command string) {
 	}
 
 	config := &ssh.ClientConfig{
-		User:            "sentinex",
+		User:            "neurader",
 		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         5 * time.Second,
@@ -149,7 +149,7 @@ func UpdateAllChildren() {
 	}
 
 	// Read the already updated binary from the Jumpbox local disk
-	binaryData, err := os.ReadFile("/usr/local/bin/sentinex")
+	binaryData, err := os.ReadFile("/usr/local/bin/neurader")
 	if err != nil {
 		fmt.Printf("[!] Error reading Jumpbox binary: %v\n", err)
 		return
@@ -167,7 +167,7 @@ func UpdateAllChildren() {
 			// 1. Stream binary to /tmp
 			// 2. Move to /usr/local/bin (requires sudo)
 			// 3. Restart the systemd daemon to apply v2
-			updateCmd := "cat > /tmp/sentinex.new && sudo mv /tmp/sentinex.new /usr/local/bin/sentinex && sudo chmod +x /usr/local/bin/sentinex && sudo systemctl restart sentinex"
+			updateCmd := "cat > /tmp/neurader.new && sudo mv /tmp/neurader.new /usr/local/bin/neurader && sudo chmod +x /usr/local/bin/neurader && sudo systemctl restart neurader"
 
 			err := ExecuteRemoteWithInput(host.IP, updateCmd, binaryData)
 			if err != nil {
@@ -186,14 +186,14 @@ func UpdateAllChildren() {
 ========================= */
 
 func ExecuteRemoteWithInput(targetIP, command string, input []byte) error {
-	keyBytes, err := os.ReadFile("/etc/sentinex/id_rsa")
+	keyBytes, err := os.ReadFile("/etc/neurader/id_rsa")
 	if err != nil {
 		return fmt.Errorf("private key not found")
 	}
 
 	signer, _ := ssh.ParsePrivateKey(keyBytes)
 	config := &ssh.ClientConfig{
-		User:            "sentinex",
+		User:            "neurader",
 		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         10 * time.Second,
@@ -288,7 +288,7 @@ func resolveTarget(target string) string {
 
 func loadInventory() Inventory {
 	var inv Inventory
-	data, err := os.ReadFile("/etc/sentinex/hosts.yml")
+	data, err := os.ReadFile("/etc/neurader/hosts.yml")
 	if err != nil {
 		return inv
 	}
