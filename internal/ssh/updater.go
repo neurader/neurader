@@ -14,7 +14,22 @@ import (
 
 // UpdateAllChildren reads the locally updated binary on the Jumpbox 
 // and pushes it to all hosts in parallel via SSH.
+func UpdateAllChildren() {
+	// 1. Load the current inventory (function defined in executor.go)
+	inv := loadInventory()
+	if len(inv.Hosts) == 0 {
+		fmt.Println(ColorYellow + "[!] No hosts found in inventory to update." + ColorReset)
+		return
+	}
 
+	// 2. Read the binary that was just upgraded on the Jumpbox.
+	// This binary is the "Source of Truth" for the entire fleet.
+	binaryPath := "/usr/local/bin/neurader"
+	binaryData, err := os.ReadFile(binaryPath)
+	if err != nil {
+		fmt.Printf(ColorRed+"[!] Error reading local binary at %s: %v\n"+ColorReset, binaryPath, err)
+		return
+	}
 
 	fmt.Printf(ColorGreen+"[*] neurader v2: Blasting update to %d child nodes...\n"+ColorReset, len(inv.Hosts))
 
