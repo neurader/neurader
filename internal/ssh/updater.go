@@ -8,55 +8,50 @@ import (
 
 /* ========================================================================
    v2 CASCADING UPGRADE ENGINE
-   This file handles the distribution of the neurader binary from the 
-   Jumpbox to all managed child nodes defined in hosts.yml.
+   Handles the parallel distribution of the updated binary.
    ======================================================================== */
 
-// UpdateAllChildren reads the locally updated binary on the Jumpbox 
-// and pushes it to all hosts in parallel via SSH.
+// UpdateAllChildren pushes the Jumpbox's current binary to all managed nodes.
 func UpdateAllChildren() {
-	// 1. Load the current inventory (function defined in executor.go)
+	// 1. Get the list of nodes (defined in executor.go)
 	inv := loadInventory()
 	if len(inv.Hosts) == 0 {
-		fmt.Println(ColorYellow + "[!] No hosts found in inventory to update." + ColorReset)
+		fmt.Println(ColorYellow + "[!] No hosts found in inventory." + ColorReset)
 		return
 	}
 
-	// 2. Read the binary that was just upgraded on the Jumpbox.
-	// This binary is the "Source of Truth" for the entire fleet.
+	// 2. Read the local binary that was just updated
 	binaryPath := "/usr/local/bin/neurader"
 	binaryData, err := os.ReadFile(binaryPath)
 	if err != nil {
-		fmt.Printf(ColorRed+"[!] Error reading local binary at %s: %v\n"+ColorReset, binaryPath, err)
+		fmt.Printf(ColorRed+"[!] Error reading local binary: %v\n"+ColorReset, err)
 		return
 	}
 
-	fmt.Printf(ColorGreen+"[*] neurader v2: Blasting update to %d child nodes...\n"+ColorReset, len(inv.Hosts))
+	fmt.Printf(ColorGreen+"[*] neurader v2: Blasting update to %d nodes...\n"+ColorReset, len(inv.Hosts))
 
 	var wg sync.WaitGroup
 	for _, h := range inv.Hosts {
 		wg.Add(1)
 		go func(host HostEntry) {
 			defer wg.Done()
-			
-			// THE UPGRADE SEQUENCE (Remote Execution):
-			// 1. Receive binary stream and save to /tmp/neurader.new
-			// 2. Move to /usr/local/bin (Atomic swap using sudo)
-			// 3. Set executable permissions
-			// 4. Restart the systemd service to load the new v2 code
-			updateCmd := "cat > /tmp/neurader.new && sudo mv /tmp/neurader.new /usr/local/bin/neurader && sudo chmod +x /usr/local/bin/neurader && sudo systemctl restart neurader"
-			
-			// ExecuteRemoteWithInput (from executor.go) handles the SSH tunnel and stdin stream
+
+			// The remote command sequence
+			updateCmd := "cat > /tmp/neurader.new && " +
+				"sudo mv /tmp/neurader.new /usr/local/bin/neurader && " +
+				"sudo chmod +x /usr/local/bin/neurader && " +
+				"sudo systemctl restart neurader"
+
+			// ExecuteRemoteWithInput (defined in executor.go)
 			err := ExecuteRemoteWithInput(host.IP, updateCmd, binaryData)
 			if err != nil {
 				fmt.Printf("[%s] %sUpdate Failed%s: %v\n", host.Name, ColorRed, ColorReset, err)
 			} else {
-				fmt.Printf("[%s] %sSuccessfully Patched & Restarted%s\n", host.Name, ColorGreen, ColorReset)
+				fmt.Printf("[%s] %sSuccess%s\n", host.Name, ColorGreen, ColorReset)
 			}
 		}(h)
 	}
 
-	// Wait for all concurrent updates to finish
 	wg.Wait()
-	fmt.Println("\n" + ColorGreen + "[+++] Global update complete. All nodes are synchronized." + ColorReset)
+	fmt.Println("\n" + ColorGreen + "[+++] Global update complete." + ColorReset)
 }
