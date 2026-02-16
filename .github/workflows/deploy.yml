@@ -31,7 +31,7 @@ jobs:
       - name: Build Binary
         run: |
           # Build specifically for Linux 64-bit static binary
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "neurader-${{ steps.vars.outputs.tag }}" main.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "neurader-${{ steps.vars.outputs.tag }}" .
 
       - name: Upload to S3
         env:
