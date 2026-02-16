@@ -15,7 +15,7 @@ import (
 
 // The URL where your Developer Server hosts the latest compiled binary.
 // Replace with your actual server IP or domain.
-const UpdateURL = "https://neurader.operman.in/releases/neurader-latest"
+const UpdateURL = "https://neurader.operman.in/releases/neurader-main"
 
 // FetchAndUpgradeJumpbox downloads the new binary from your dev server.
 func FetchAndUpgradeJumpbox() error {
