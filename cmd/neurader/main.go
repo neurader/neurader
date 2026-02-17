@@ -4,17 +4,16 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"path/filepath" // Added for path handling
 
 	"neurader/internal/api"
 	"neurader/internal/ssh"
 	"neurader/internal/system"
 )
 
-// Version 2.0.0 - Semantic Versioning
 const Version = "v2.0.0"
 
 func main() {
-	// If no arguments, show help
 	if len(os.Args) < 2 {
 		showHelp()
 		return
@@ -34,13 +33,11 @@ func main() {
 	case "upgrade":
 		fmt.Printf("🚀 neurader %s Global Upgrade\n", Version)
 		fmt.Println("---------------------------------")
-		// 1. Jumpbox pulls new binary from your Dev Server
 		err := system.FetchAndUpgradeJumpbox()
 		if err != nil {
 			fmt.Printf("[!] Jumpbox upgrade failed: %v\n", err)
 			return
 		}
-		// 2. Jumpbox pushes that same binary to all children via SSH
 		ssh.UpdateAllChildren()
 		fmt.Println("\n✨ Global upgrade complete. All nodes are on the latest build.")
 
@@ -62,18 +59,28 @@ func main() {
 		ssh.ListHosts()
 
 	case "add":
-    if len(os.Args) < 4 {
-        fmt.Println("Usage: neurader add <Alias> <IP>")
-        return
-    }
-    alias, ip := os.Args[2], os.Args[3]
-    
-    // Prefix these with 'api.'
-    inventory := api.LoadFile(api.InventoryPath) 
-    inventory.Hosts = append(inventory.Hosts, api.HostEntry{Name: alias, IP: ip})
-    api.WriteData(api.InventoryPath, inventory)
-    
-    fmt.Printf("[+] Manually added %s (%s) to inventory.\n", alias, ip)
+		if len(os.Args) < 4 {
+			fmt.Println("Usage: neurader add <Alias> <IP>")
+			return
+		}
+		alias, ip := os.Args[2], os.Args[3]
+
+		// FIX: Ensure directory exists before adding
+		if err := os.MkdirAll(filepath.Dir(api.InventoryPath), 0755); err != nil {
+			fmt.Printf("[!] Permission Error: Could not create config directory: %v\n", err)
+			return
+		}
+
+		// Load existing or initialize new if file is missing
+		inventory := api.LoadFile(api.InventoryPath)
+		if inventory.Hosts == nil {
+			inventory.Hosts = []api.HostEntry{}
+		}
+		
+		inventory.Hosts = append(inventory.Hosts, api.HostEntry{Name: alias, IP: ip})
+		api.WriteData(api.InventoryPath, inventory)
+		
+		fmt.Printf("[+] Manually added %s (%s) to inventory.\n", alias, ip)
 
 	case "run":
 		if len(os.Args) < 4 {
@@ -91,7 +98,7 @@ func main() {
 
 func showHelp() {
 	fmt.Printf("neurader %s - Automation & Security Tool\n", Version)
-	fmt.Println("Usage: neurader [version | upgrade | install | daemon | pending | accept <IP> | list | run <Alias/IP> <cmd>]")
+	fmt.Println("Usage: neurader [version | upgrade | install | daemon | pending | accept <IP> | list | add <Alias> <IP> | run <Alias/IP> <cmd>]")
 }
 
 func runWizard() {
@@ -106,11 +113,21 @@ func runWizard() {
 
 	if choice == 1 {
 		fmt.Println("[*] Configuring Jumpbox...")
+		
+		// Ensure the directory exists FIRST
+		configDir := "/etc/neurader"
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			fmt.Printf("[!] Fatal: Could not create %s. Run with sudo.\n", configDir)
+			return
+		}
+
 		ssh.GenerateMasterKeys()
 		
-		if _, err := os.Stat("/etc/neurader/hosts.yml"); os.IsNotExist(err) {
-			os.MkdirAll("/etc/neurader", 0755)
-			os.WriteFile("/etc/neurader/hosts.yml", []byte("hosts: []\n"), 0644)
+		// Initialize the file if it's missing
+		hostsFile := filepath.Join(configDir, "hosts.yml")
+		if _, err := os.Stat(hostsFile); os.IsNotExist(err) {
+			os.WriteFile(hostsFile, []byte("hosts: []\n"), 0644)
+			fmt.Println("[+] Created initial inventory at", hostsFile)
 		}
 
 		system.InstallService()
