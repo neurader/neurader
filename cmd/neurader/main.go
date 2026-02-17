@@ -61,6 +61,17 @@ func main() {
 	case "list":
 		ssh.ListHosts()
 
+	case "add":
+    if len(os.Args) < 4 {
+        fmt.Println("Usage: neurader add <Alias> <IP>")
+        return
+    }
+    alias, ip := os.Args[2], os.Args[3]
+    inventory := loadFile(InventoryPath)
+    inventory.Hosts = append(inventory.Hosts, HostEntry{Name: alias, IP: ip})
+    writeData(InventoryPath, inventory)
+    fmt.Printf("[+] Manually added %s (%s) to inventory.\n", alias, ip)
+
 	case "run":
 		if len(os.Args) < 4 {
 			fmt.Println("Usage: neurader run <Alias/IP> \"command\"")
