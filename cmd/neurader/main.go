@@ -67,9 +67,12 @@ func main() {
         return
     }
     alias, ip := os.Args[2], os.Args[3]
-    inventory := loadFile(InventoryPath)
-    inventory.Hosts = append(inventory.Hosts, HostEntry{Name: alias, IP: ip})
-    writeData(InventoryPath, inventory)
+    
+    // Prefix these with 'api.'
+    inventory := api.LoadFile(api.InventoryPath) 
+    inventory.Hosts = append(inventory.Hosts, api.HostEntry{Name: alias, IP: ip})
+    api.WriteData(api.InventoryPath, inventory)
+    
     fmt.Printf("[+] Manually added %s (%s) to inventory.\n", alias, ip)
 
 	case "run":
