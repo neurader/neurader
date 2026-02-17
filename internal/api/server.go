@@ -34,10 +34,9 @@ type Inventory struct {
    JUMPBOX REGISTRATION
 ========================= */
 
-// StartRegistrationServer runs on the Jumpbox to listen for new child nodes
 func StartRegistrationServer(port string) {
-	// Clean up old requests on start to keep inventory fresh
-	writeData(PendingPath, Inventory{Hosts: []HostEntry{}})
+	// Updated to WriteData
+	WriteData(PendingPath, Inventory{Hosts: []HostEntry{}})
 
 	http.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
 		hostname := r.URL.Query().Get("host")
@@ -54,19 +53,21 @@ func StartRegistrationServer(port string) {
 }
 
 func savePending(name, ip string) {
-	inv := loadFile(PendingPath)
+	// Updated to LoadFile and WriteData
+	inv := LoadFile(PendingPath)
 	for _, h := range inv.Hosts {
 		if h.IP == ip {
 			return
 		}
 	}
 	inv.Hosts = append(inv.Hosts, HostEntry{Name: name, IP: ip})
-	writeData(PendingPath, inv)
+	WriteData(PendingPath, inv)
 }
 
 func AcceptHost(childIP string) {
-	pending := loadFile(PendingPath)
-	inventory := loadFile(InventoryPath)
+	// Updated to LoadFile and WriteData
+	pending := LoadFile(PendingPath)
+	inventory := LoadFile(InventoryPath)
 
 	var targetEntry HostEntry
 	var newPending []HostEntry
@@ -107,8 +108,8 @@ func AcceptHost(childIP string) {
 	}
 
 	inventory.Hosts = append(inventory.Hosts, HostEntry{Name: alias, IP: childIP})
-	writeData(InventoryPath, inventory)
-	writeData(PendingPath, Inventory{Hosts: newPending})
+	WriteData(InventoryPath, inventory)
+	WriteData(PendingPath, Inventory{Hosts: newPending})
 
 	fmt.Printf("[+] Success! %s (%s) is now in the active inventory.\n", alias, childIP)
 }
@@ -153,11 +154,11 @@ func SendRequest(jumpboxIP string) {
 }
 
 /* =========================
-   HELPERS
+   HELPERS (NOW EXPORTED)
 ========================= */
 
 func ListPending() {
-	inv := loadFile(PendingPath)
+	inv := LoadFile(PendingPath)
 	if len(inv.Hosts) == 0 {
 		fmt.Println("No active registration requests.")
 		return
@@ -168,7 +169,8 @@ func ListPending() {
 	}
 }
 
-func loadFile(path string) Inventory {
+// Capitalized LoadFile so main.go can see it
+func LoadFile(path string) Inventory {
 	var inv Inventory
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -178,7 +180,8 @@ func loadFile(path string) Inventory {
 	return inv
 }
 
-func writeData(path string, inv Inventory) {
+// Capitalized WriteData so main.go can see it
+func WriteData(path string, inv Inventory) {
 	data, _ := yaml.Marshal(inv)
 	_ = os.MkdirAll(ConfigDir, 0755)
 	err := os.WriteFile(path, data, 0644)
@@ -188,7 +191,7 @@ func writeData(path string, inv Inventory) {
 }
 
 func ProactiveHandshake() {
-	inventory := loadFile(InventoryPath)
+	inventory := LoadFile(InventoryPath)
 	if len(inventory.Hosts) == 0 {
 		fmt.Println("[!] Inventory is empty. Please add nodes to /etc/neurader/hosts.yml first.")
 		return
