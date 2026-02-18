@@ -9,6 +9,8 @@ import (
 	"neurader/internal/api"
 	"neurader/internal/ssh"
 	"neurader/internal/system"
+	"neurader/internal/cloud"
+	"neurader/internal/k8s"
 )
 
 const Version = "v2.0.0"
@@ -57,6 +59,29 @@ func main() {
 
 	case "list":
 		ssh.ListHosts()
+
+	// Inside func main() switch os.Args[1]
+
+	case "gke-daemon":
+		// This handles the 24/7 background monitoring of pods and nodes
+		fmt.Printf("[*] neurader GKE Daemon %s is active...\n", Version)
+		bucket := os.Getenv("GCS_BUCKET")
+		if bucket == "" {
+			fmt.Println("[!] Error: Set GCS_BUCKET environment variable for log storage.")
+			return
+		}
+		
+		// Initialize the Kubernetes API connection
+		clientset := system.GetK8sClient() 
+		// Initialize the Cloud Storage handler
+		uploader := &cloud.GCSUploader{BucketName: bucket}
+		// Start the watcher logic (monitors failures & extracts logs)
+		k8s.StartWatcher(clientset, uploader)
+
+	case "gke-install":
+		// This is your one-time setup command for the cluster
+		fmt.Println("🚀 Installing neurader service accounts and RBAC to GKE...")
+		system.DeployToK8s()
 
 	case "add":
 		if len(os.Args) < 4 {
