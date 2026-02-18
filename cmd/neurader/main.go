@@ -63,25 +63,27 @@ func main() {
 	// Inside func main() switch os.Args[1]
 
 	case "gke-daemon":
-		// This handles the 24/7 background monitoring of pods and nodes
 		fmt.Printf("[*] neurader GKE Daemon %s is active...\n", Version)
 		bucket := os.Getenv("GCS_BUCKET")
 		if bucket == "" {
 			fmt.Println("[!] Error: Set GCS_BUCKET environment variable for log storage.")
 			return
 		}
-		
-		// Initialize the Kubernetes API connection
-		clientset := system.GetK8sClient() 
-		// Initialize the Cloud Storage handler
+		// 1. Use the new GKE-specific client creator
+		clientset := system.GetGKEClient() 
+		// 2. Initialize the GCS handler
 		uploader := &cloud.GCSUploader{BucketName: bucket}
-		// Start the watcher logic (monitors failures & extracts logs)
-		k8s.StartWatcher(clientset, uploader)
+		// 3. Start the Node Monitor in the background (Goroutine)
+		// This comes from internal/k8s/gke_node.go
+		go k8s.StartGKENodeMonitor(clientset, uploader)
+		// 4. Start the Pod Watcher in the foreground
+		// This comes from internal/k8s/gke_watcher.go
+		k8s.StartGKEWatcher(clientset, uploader)
 
 	case "gke-install":
-		// This is your one-time setup command for the cluster
 		fmt.Println("🚀 Installing neurader service accounts and RBAC to GKE...")
-		system.DeployToK8s()
+		// Use the updated function name from internal/system/gke_deploy.go
+		system.DeployGKEResources()
 
 	case "add":
 		if len(os.Args) < 4 {
