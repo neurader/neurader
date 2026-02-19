@@ -183,46 +183,37 @@ func ExecuteRemoteWithInput(targetIP, command string, input []byte) error {
 	return session.Wait()
 }
 
-func ListHosts() {
-	inv := loadInventory()
-	if len(inv.Hosts) == 0 {
-		fmt.Println("No hosts in inventory.")
-		return
-	}
-
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "ALIAS\tIP ADDRESS\tSTATUS")
-	fmt.Fprintln(w, "-----\t----------\t------")
-
-	var wg sync.WaitGroup
-	status := make(map[string]string)
-	var mu sync.Mutex
-
-	for _, h := range inv.Hosts {
-		wg.Add(1)
-		go func(ip string) {
-			defer wg.Done()
-			s := checkStatus(ip)
-			mu.Lock()
-			status[ip] = s
-			mu.Unlock()
-		}(h.IP)
-	}
-	wg.Wait()
-
-	for _, h := range inv.Hosts {
-		fmt.Fprintf(w, "%s\t%s\t%s\n", h.Name, h.IP, status[h.IP])
-	}
-	w.Flush()
-}
-
+// Updated checkStatus to verify actual SSH access
 func checkStatus(ip string) string {
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(ip, "22"), 2*time.Second)
-	if err != nil {
-		return ColorRed + "● Disconnected" + ColorReset
-	}
-	conn.Close()
-	return ColorGreen + "● Connected" + ColorReset
+    keyBytes, err := os.ReadFile("/etc/neurader/id_rsa")
+    if err != nil {
+        return ColorYellow + "● Key Missing" + ColorReset
+    }
+
+    signer, err := ssh.ParsePrivateKey(keyBytes)
+    if err != nil {
+        return ColorRed + "● Key Error" + ColorReset
+    }
+
+    config := &ssh.ClientConfig{
+        User:            "neurader",
+        Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+        HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+        Timeout:         2 * time.Second, // Quick timeout for status checks
+    }
+
+    // Attempt actual SSH connection
+    client, err := ssh.Dial("tcp", ip+":22", config)
+    if err != nil {
+        // Distinguish between "Port Closed" and "Permission Denied"
+        if strings.Contains(err.Error(), "unable to authenticate") {
+            return ColorYellow + "● Not Synced" + ColorReset
+        }
+        return ColorRed + "● Offline" + ColorReset
+    }
+    defer client.Close()
+
+    return ColorGreen + "● Ready" + ColorReset
 }
 
 func streamOutput(target string, reader io.Reader) {
