@@ -8,7 +8,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"strings"
 	"sync"
