@@ -183,6 +183,41 @@ func ExecuteRemoteWithInput(targetIP, command string, input []byte) error {
 	return session.Wait()
 }
 
+func ListHosts() {
+    inv := loadInventory()
+    if len(inv.Hosts) == 0 {
+        fmt.Println("No hosts in inventory.")
+        return
+    }
+
+    // Using tabwriter for clean column alignment
+    w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+    fmt.Fprintln(w, "ALIAS\tIP ADDRESS\tSTATUS")
+    fmt.Fprintln(w, "-----\t----------\t------")
+
+    var wg sync.WaitGroup
+    statusMap := make(map[string]string)
+    var mu sync.Mutex
+
+    // Check all hosts in parallel
+    for _, h := range inv.Hosts {
+        wg.Add(1)
+        go func(ip string) {
+            defer wg.Done()
+            s := checkStatus(ip)
+            mu.Lock()
+            statusMap[ip] = s
+            mu.Unlock()
+        }(h.IP)
+    }
+    wg.Wait()
+
+    for _, h := range inv.Hosts {
+        fmt.Fprintf(w, "%s\t%s\t%s\n", h.Name, h.IP, statusMap[h.IP])
+    }
+    w.Flush()
+}
+
 // Updated checkStatus to verify actual SSH access
 func checkStatus(ip string) string {
     keyBytes, err := os.ReadFile("/etc/neurader/id_rsa")
