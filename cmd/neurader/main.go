@@ -59,29 +59,31 @@ func main() {
 		ssh.ListHosts()
 
 	case "add":
-		if len(os.Args) < 4 {
-			fmt.Println("Usage: neurader add <Alias> <IP>")
-			return
-		}
-		alias, ip := os.Args[2], os.Args[3]
+        if len(os.Args) < 4 {
+            fmt.Println("Usage: neurader add <Alias> <IP>")
+            return
+        }
+        alias, ip := os.Args[2], os.Args[3]
 
-		// FIX: Ensure directory exists before adding
-		if err := os.MkdirAll(filepath.Dir(api.InventoryPath), 0755); err != nil {
-			fmt.Printf("[!] Permission Error: Could not create config directory: %v\n", err)
-			return
-		}
+        if err := os.MkdirAll(filepath.Dir(api.InventoryPath), 0755); err != nil {
+            fmt.Printf("[!] Permission Error: %v\n", err)
+            return
+        }
 
-		// Load existing or initialize new if file is missing
-		inventory := api.LoadFile(api.InventoryPath)
-		if inventory.Hosts == nil {
-			inventory.Hosts = []api.HostEntry{}
-		}
+        inventory := api.LoadFile(api.InventoryPath)
+        if inventory.Hosts == nil {
+            inventory.Hosts = []api.HostEntry{}
+        }
+        
+        inventory.Hosts = append(inventory.Hosts, api.HostEntry{Name: alias, IP: ip})
+        api.WriteData(api.InventoryPath, inventory)
+        
+        fmt.Printf("[+] Manually added %s (%s) to inventory.\n", alias, ip)
+
+        // NEW: Automatically attempt to sync the key to the new node
+        fmt.Println("[*] Attempting automatic sync...")
+        api.ProactiveHandshake()
 		
-		inventory.Hosts = append(inventory.Hosts, api.HostEntry{Name: alias, IP: ip})
-		api.WriteData(api.InventoryPath, inventory)
-		
-		fmt.Printf("[+] Manually added %s (%s) to inventory.\n", alias, ip)
-
 	case "run":
 		if len(os.Args) < 4 {
 			fmt.Println("Usage: neurader run <Alias/IP> \"command\"")
