@@ -14,7 +14,7 @@ We’re good listeners. We use the following channels to gather ideas and bug re
 
 | Repository / Channel | Purpose |
 | :--- | :--- |
-| **[Issues](https://github.com/YOUR_USERNAME/neurader/issues)** | Bug reports and technical feature requests |
+| **[Issues]([https://github.com/YOUR_USERNAME/neurader/issues](https://discord.gg/UEWBsx7t))** | Bug reports and technical feature requests |
 | **[Feature Ideas](https://neurader.operman.in/ideas)** | General feedback and roadmap suggestions |
 
 ---
@@ -23,11 +23,10 @@ We’re good listeners. We use the following channels to gather ideas and bug re
 
 | Resource | Link |
 | :--- | :--- |
-| 📘 **Documentation** | [neurader.operman.in](https://neurader.operman.in) |
-| 🚀 **Releases** | [Latest Binaries](https://neurader.operman.in/releases) |
-| 💬 **Community Support** | [Discord](https://discord.gg/yourlink) · [Slack](https://slack.com/yourlink) |
-| 🐙 **GitHub** | [github.com/YOUR_USERNAME/neurader](https://github.com/YOUR_USERNAME/neurader) |
-| 🌐 **Social Media** | [X/Twitter](https://x.com/YOUR_HANDLE) · [LinkedIn](https://linkedin.com/in/YOUR_PROFILE) · [Instagram](https://instagram.com/YOUR_INSTA) |
+| 📘 **Documentation** | [neurader.operman.in](https://neurader.operman.in/docs.html) |
+| 🚀 **Releases** | [Latest Binaries](https://neurader.operman.in/releases/neurader-latest) |
+| 💬 **Community Support** | [Discord](https://discord.gg/UEWBsx7t) · [Slack]([https://slack.com/yourlink](https://join.slack.com/t/neurader/shared_invite/zt-3qh3hp0o3-wRH0ri4pGGkP1~OVkd_OiQ)) |
+| 🌐 **Social Media** | [X/Twitter](https://x.com/YOUR_HANDLE) · [LinkedIn](https://linkedin.com/in/YOUR_PROFILE) |
 
 ---
 
